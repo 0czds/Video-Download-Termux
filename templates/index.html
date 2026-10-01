@@ -1,1 +1,1519 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#121314">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>مُنزل الفيديوهات المحلي</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+  <style>
+    :root {
+      --bg: #121314;
+      --surface: #191a1c;
+      --surface-2: #202224;
+      --surface-3: #28292c;
+      --text: #eceeef;
+      --muted: #9a9ea3;
+      --muted-2: #6f7377;
+      --border: rgba(255,255,255,.09);
+      --border-strong: rgba(255,255,255,.16);
+      --accent: #7fb0ff;
+      --accent-ink: #0c1420;
+      --danger: #e6807f;
+      --warning: #d9a86c;
+      --success: #7fbf8f;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 9px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      min-height: 100%;
+      background: var(--bg);
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+      font-family:
+        "IBM Plex Sans Arabic", system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Tahoma, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    button, input, select { font: inherit; }
+
+    button {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .shell {
+      width: min(100%, 640px);
+      margin: 0 auto;
+      padding:
+        max(18px, env(safe-area-inset-top))
+        16px
+        calc(28px + var(--safe-bottom));
+    }
+
+    /* Header: name + a single status word, nothing competing for attention */
+    .topbar {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 4px 2px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .brand-copy { min-width: 0; }
+
+    .brand-title {
+      margin: 0;
+      font-size: 1.05rem;
+      line-height: 1.3;
+      font-weight: 700;
+      letter-spacing: -.01em;
+    }
+
+    .brand-subtitle {
+      margin: 0;
+      font-size: .78rem;
+      color: var(--muted-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-dot {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: .78rem;
+      flex: 0 0 auto;
+    }
+
+    .status-dot::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--success);
+    }
+
+    .status-dot.warn::before { background: var(--warning); }
+    .status-dot.error::before { background: var(--danger); }
+
+    /* Intro line kept short and quiet; the tool itself is the focus, not the copy */
+    .card {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+    }
+
+    .search-card {
+      padding: 12px;
+    }
+
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg);
+    }
+
+    .input-icon {
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
+      display: grid;
+      place-items: center;
+      color: var(--muted-2);
+      font-size: 16px;
+    }
+
+    #urlInput {
+      min-width: 0;
+      width: 100%;
+      border: 0;
+      outline: 0;
+      color: var(--text);
+      background: transparent;
+      padding: 10px 4px;
+      direction: ltr;
+      text-align: left;
+      font-size: .95rem;
+    }
+
+    #urlInput::placeholder { color: var(--muted-2); }
+
+    .clear-btn,
+    .paste-btn {
+      border: 0;
+      color: var(--muted);
+      background: transparent;
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+
+    .clear-btn:hover,
+    .paste-btn:hover,
+    .clear-btn:focus-visible,
+    .paste-btn:focus-visible {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    .primary-btn,
+    .download-btn {
+      width: 100%;
+      min-height: 48px;
+      border: 0;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      color: var(--accent-ink);
+      background: var(--accent);
+      font-weight: 700;
+      font-size: .93rem;
+      transition: filter .12s ease;
+    }
+
+    .primary-btn { margin-top: 8px; }
+
+    .primary-btn:active,
+    .download-btn:active { filter: brightness(.94); }
+
+    .primary-btn:hover,
+    .download-btn:hover { filter: brightness(1.06); }
+
+    .primary-btn:disabled,
+    .download-btn:disabled,
+    .secondary-btn:disabled {
+      cursor: not-allowed;
+      opacity: .4;
+    }
+
+    .input-hint {
+      margin: 9px 4px 1px;
+      font-size: .74rem;
+      color: var(--muted-2);
+    }
+
+    .section {
+      margin-top: 14px;
+    }
+
+    .hidden { display: none !important; }
+
+    /* Loading skeleton: quiet pulse instead of a moving sheen */
+    .skeleton {
+      padding: 14px;
+    }
+
+    .skeleton-line,
+    .skeleton-box {
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .55; }
+    }
+
+    .skeleton-media {
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius-md);
+    }
+
+    .skeleton-line {
+      height: 14px;
+      margin-top: 12px;
+    }
+
+    .skeleton-line.short { width: 40%; }
+    .skeleton-line.mid { width: 68%; }
+
+    .info-card { overflow: hidden; }
+
+    .thumb-wrap {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: var(--surface-2);
+      overflow: hidden;
+    }
+
+    .thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .thumb-fade { display: none; }
+
+    .duration-badge {
+      position: absolute;
+      bottom: 9px;
+      inset-inline-start: 9px;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      background: rgba(0,0,0,.7);
+      font-size: .72rem;
+      font-weight: 600;
+    }
+
+    .info-body { padding: 14px; }
+
+    .eyebrow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: transparent;
+      font-size: .72rem;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.45;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      overflow-wrap: anywhere;
+    }
+
+    .meta {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: .8rem;
+      line-height: 1.5;
+    }
+
+    .options-card {
+      padding: 14px;
+    }
+
+    .section-head {
+      margin-bottom: 12px;
+    }
+
+    .section-label {
+      margin: 0;
+      font-size: .88rem;
+      font-weight: 700;
+    }
+
+    .section-note {
+      margin: 3px 0 0;
+      color: var(--muted-2);
+      font-size: .74rem;
+    }
+
+    /* Mode switch: a plain two-way toggle, not two competing buttons */
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
+      padding: 3px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: 14px;
+      background: var(--bg);
+    }
+
+    .mode-btn {
+      min-height: 40px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: .86rem;
+    }
+
+    .mode-btn.active {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    /* Quality list: one column of readable rows, not a two-up icon grid.
+       On a narrow phone, a single scannable list beats squeezed cards. */
+    .quality-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    .quality-option {
+      position: relative;
+    }
+
+    .quality-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .quality-option label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 52px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: transparent;
+      cursor: pointer;
+      transition: border-color .12s ease, background .12s ease;
+    }
+
+    .quality-option.unavailable { opacity: .4; }
+    .quality-option.unavailable label { cursor: not-allowed; }
+
+    .quality-option input:checked + label {
+      border-color: var(--accent);
+      background: rgba(127,176,255,.08);
+    }
+
+    .quality-main {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .quality-icon { display: none; }
+
+    .quality-text {
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .quality-name {
+      color: var(--text);
+      font-size: .87rem;
+      font-weight: 700;
+      flex: 0 0 auto;
+    }
+
+    .quality-sub {
+      color: var(--muted-2);
+      font-size: .72rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .quality-size {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: .74rem;
+      text-align: end;
+    }
+
+    .audio-panel {
+      display: none;
+    }
+
+    .audio-panel.active { display: block; }
+
+    .audio-option {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-height: 56px;
+      padding: 11px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: transparent;
+    }
+
+    .audio-icon { display: none; }
+
+    .audio-copy { min-width: 0; }
+
+    .audio-copy strong {
+      display: block;
+      font-size: .85rem;
+      font-weight: 700;
+    }
+
+    .audio-copy span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted-2);
+      font-size: .72rem;
+      line-height: 1.4;
+    }
+
+    .download-btn {
+      margin-top: 12px;
+      min-height: 50px;
+      font-size: .93rem;
+    }
+
+    .progress-card {
+      padding: 14px;
+    }
+
+    .progress-top,
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .progress-top strong {
+      font-size: .86rem;
+      font-weight: 700;
+    }
+
+    .percent {
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .progress-track {
+      height: 8px;
+      margin-top: 10px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: var(--accent);
+      transition: width .3s ease;
+    }
+
+    /* أثناء دمج/ترميز ffmpeg لا توجد نسبة تقدم حقيقية موثوقة، فنعرض حركة
+       مستمرة بدل شريط ثابت على 99% حتى لا يبدو التطبيق متجمّدًا على
+       فيديو كبير الحجم أو بدقة عالية يستغرق دمجه وقتًا أطول. */
+    .progress-bar.indeterminate {
+      width: 40% !important;
+      animation: progress-indeterminate 1.3s ease-in-out infinite;
+    }
+
+    /* الصفحة RTL: الشريط يبدأ من الحافة اليمنى، لذا الحركة من اليمين إلى اليسار. */
+    @keyframes progress-indeterminate {
+      0% { transform: translateX(100%); }
+      100% { transform: translateX(-250%); }
+    }
+
+    .progress-meta {
+      margin-top: 8px;
+      color: var(--muted-2);
+      font-size: .72rem;
+    }
+
+    .progress-actions {
+      margin-top: 12px;
+    }
+
+    .secondary-btn {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text);
+      background: transparent;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: .87rem;
+    }
+
+    .secondary-btn:hover { background: var(--surface-2); }
+
+    .empty-card {
+      padding: 22px 16px;
+      text-align: center;
+    }
+
+    .empty-icon { display: none; }
+
+    .empty-card strong {
+      display: block;
+      font-size: .87rem;
+      font-weight: 700;
+    }
+
+    .empty-card p {
+      margin: 6px auto 0;
+      max-width: 34ch;
+      color: var(--muted-2);
+      font-size: .78rem;
+      line-height: 1.6;
+    }
+
+    .toast-stack {
+      position: fixed;
+      z-index: 50;
+      right: 12px;
+      left: 12px;
+      bottom: calc(14px + var(--safe-bottom));
+      display: grid;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      width: min(100%, 480px);
+      margin-inline-start: auto;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 13px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      background: var(--surface-3);
+      pointer-events: auto;
+      animation: toast-in .16s ease both;
+    }
+
+    .toast.out {
+      animation: toast-out .14s ease forwards;
+    }
+
+    .toast-icon {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 22px;
+      display: grid;
+      place-items: center;
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      font-size: .78rem;
+    }
+
+    .toast-copy { min-width: 0; }
+
+    .toast-title {
+      font-size: .8rem;
+      font-weight: 700;
+    }
+
+    .toast-text {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: .72rem;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes toast-out {
+      to { opacity: 0; transform: translateY(6px); }
+    }
+
+    .spin {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      vertical-align: -2px;
+      margin-inline-start: 6px;
+      border: 2px solid rgba(12,20,32,.3);
+      border-top-color: currentColor;
+      border-radius: 999px;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (min-width: 480px) {
+      .quality-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width: 560px) {
+      .shell {
+        padding-inline: 20px;
+      }
+
+      .search-row {
+        display: grid;
+        grid-template-columns: 1fr 170px;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .primary-btn {
+        margin-top: 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .001ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand-copy">
+        <h1 class="brand-title">مُنزل الفيديوهات المحلي</h1>
+        <p class="brand-subtitle">تحميل مباشر إلى جهازك عبر Flask</p>
+      </div>
+      <div id="serverStatus" class="status-dot">جاري الفحص</div>
+    </header>
+
+    <section class="card search-card" aria-label="جلب معلومات الفيديو">
+      <div class="search-row">
+        <div class="input-wrap">
+          <div class="input-icon" aria-hidden="true">🔗</div>
+          <input
+            id="urlInput"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="ألصق رابط YouTube أو TikTok أو Instagram..."
+            aria-label="رابط الفيديو"
+          >
+          <button id="pasteBtn" class="paste-btn" type="button" title="لصق من الحافظة" aria-label="لصق من الحافظة">⌕</button>
+          <button id="clearBtn" class="clear-btn" type="button" title="مسح الرابط" aria-label="مسح الرابط">×</button>
+        </div>
+
+        <button id="fetchBtn" class="primary-btn" type="button">
+          <span id="fetchBtnLabel">جلب البيانات</span>
+        </button>
+      </div>
+      <p class="input-hint">يدعم YouTube وTikTok وInstagram. لن يبدأ التنزيل قبل اختيار الجودة.</p>
+    </section>
+
+    <section id="loadingCard" class="card skeleton section hidden" aria-live="polite" aria-label="جارٍ جلب البيانات">
+      <div class="skeleton-box skeleton-media"></div>
+      <div class="skeleton-line mid"></div>
+      <div class="skeleton-line short"></div>
+      <div class="skeleton-line"></div>
+    </section>
+
+    <section id="infoCard" class="card info-card section hidden" aria-live="polite"></section>
+
+    <section id="optionsCard" class="card options-card section hidden">
+      <div class="section-head">
+        <div>
+          <h2 class="section-label">خيارات التنزيل</h2>
+          <p id="optionsNote" class="section-note">اختر الصيغة المتاحة من الفيديو</p>
+        </div>
+      </div>
+
+      <div class="mode-switch" role="tablist" aria-label="نوع التنزيل">
+        <button id="videoModeBtn" class="mode-btn active" type="button" role="tab" aria-selected="true">🎬 فيديو</button>
+        <button id="audioModeBtn" class="mode-btn" type="button" role="tab" aria-selected="false">🎵 صوت MP3</button>
+      </div>
+
+      <div id="videoPanel">
+        <div id="qualityGrid" class="quality-grid" role="radiogroup" aria-label="جودة الفيديو"></div>
+      </div>
+
+      <div id="audioPanel" class="audio-panel">
+        <div class="audio-option">
+          <div class="audio-icon" aria-hidden="true">♪</div>
+          <div class="audio-copy">
+            <strong>صوت فقط — MP3</strong>
+            <span>أفضل صوت متاح، مع تحويل تلقائي إلى MP3 عبر ffmpeg.</span>
+          </div>
+        </div>
+      </div>
+
+      <button id="downloadBtn" class="download-btn" type="button" disabled>
+        ⬇️ تنزيل الفيديو
+      </button>
+    </section>
+
+    <section id="progressCard" class="card progress-card section hidden" aria-live="polite">
+      <div class="progress-top">
+        <strong id="progressTitle">التنزيل</strong>
+        <span id="progressPercent" class="percent">0%</span>
+      </div>
+
+      <div class="progress-track" aria-hidden="true">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+
+      <div class="progress-meta">
+        <span id="progressStatus">في الانتظار...</span>
+        <span id="progressExtra"></span>
+      </div>
+
+      <div id="progressActions" class="progress-actions hidden">
+        <button id="openFileBtn" class="secondary-btn" type="button">📁 فتح الملف</button>
+      </div>
+    </section>
+
+    <section id="emptyCard" class="card empty-card section">
+      <div class="empty-icon" aria-hidden="true">▶</div>
+      <strong>ابدأ من رابط فيديو</strong>
+      <p>بعد جلب المعلومات ستظهر هنا بطاقة الفيديو وخيارات الجودة المتاحة.</p>
+    </section>
+  </main>
+
+  <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    "use strict";
+
+    const state = {
+      url: "",
+      info: null,
+      mode: "video",
+      selectedFormat: null,
+      currentTaskId: null,
+      pollTimer: null,
+      postprocessStartedAt: null,
+      completedFile: null,
+      downloadActive: false,
+      pollDelay: 1000
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    const els = {
+      urlInput: $("urlInput"),
+      pasteBtn: $("pasteBtn"),
+      clearBtn: $("clearBtn"),
+      fetchBtn: $("fetchBtn"),
+      fetchBtnLabel: $("fetchBtnLabel"),
+      loadingCard: $("loadingCard"),
+      infoCard: $("infoCard"),
+      optionsCard: $("optionsCard"),
+      optionsNote: $("optionsNote"),
+      videoModeBtn: $("videoModeBtn"),
+      audioModeBtn: $("audioModeBtn"),
+      videoPanel: $("videoPanel"),
+      audioPanel: $("audioPanel"),
+      qualityGrid: $("qualityGrid"),
+      downloadBtn: $("downloadBtn"),
+      progressCard: $("progressCard"),
+      progressTitle: $("progressTitle"),
+      progressPercent: $("progressPercent"),
+      progressBar: $("progressBar"),
+      progressStatus: $("progressStatus"),
+      progressExtra: $("progressExtra"),
+      progressActions: $("progressActions"),
+      openFileBtn: $("openFileBtn"),
+      emptyCard: $("emptyCard"),
+      toastStack: $("toastStack"),
+      serverStatus: $("serverStatus")
+    };
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function formatDuration(seconds, fallback) {
+      if (fallback) return fallback;
+      if (!Number.isFinite(Number(seconds))) return "—";
+      let total = Math.max(0, Math.floor(Number(seconds)));
+      const h = Math.floor(total / 3600);
+      total %= 3600;
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      if (h) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    const STANDARD_QUALITY_ORDER = [1080, 720, 480, 360, 240, 144];
+
+    function qualityLabel(format) {
+      const height = Number(format?.quality || format?.height);
+      if (!STANDARD_QUALITY_ORDER.includes(height)) return "جودة غير متاحة";
+      const fps = Number(format?.fps) || 0;
+      return fps >= 50 ? `${height}p · ${Math.round(fps)} FPS` : `${height}p`;
+    }
+
+    async function fetchJson(url, options = {}, timeoutMs = 15000) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data) {
+          throw new Error(data?.error || `خطأ من السيرفر (${response.status})`);
+        }
+        return data;
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          throw new Error("انتهت مهلة الاتصال بالسيرفر. تحقق من الشبكة ثم أعد المحاولة.");
+        }
+        throw error;
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }
+
+    function setInteractionLocked(locked) {
+      state.downloadActive = locked;
+      els.fetchBtn.disabled = locked;
+      els.urlInput.disabled = locked;
+      els.clearBtn.disabled = locked;
+      els.pasteBtn.disabled = locked;
+      els.videoModeBtn.disabled = locked;
+      els.audioModeBtn.disabled = locked;
+      if (!locked) setMode(state.mode);
+    }
+
+    function updateServerStatus(status) {
+      els.serverStatus.classList.remove("warn", "error");
+      if (status === "ready") {
+        els.serverStatus.textContent = "جاهز";
+      } else if (status === "warning") {
+        els.serverStatus.textContent = "جاهز جزئيًا";
+        els.serverStatus.classList.add("warn");
+      } else {
+        els.serverStatus.textContent = "تحقق من الإعداد";
+        els.serverStatus.classList.add("error");
+      }
+    }
+
+    function showToast(title, message, type = "info") {
+      const icon = type === "error" ? "!" : type === "success" ? "✓" : "i";
+      const node = document.createElement("div");
+      node.className = "toast";
+      node.innerHTML = `
+        <div class="toast-icon" aria-hidden="true">${icon}</div>
+        <div class="toast-copy">
+          <div class="toast-title">${escapeHtml(title)}</div>
+          <div class="toast-text">${escapeHtml(message)}</div>
+        </div>
+      `;
+      els.toastStack.appendChild(node);
+
+      window.setTimeout(() => {
+        node.classList.add("out");
+        window.setTimeout(() => node.remove(), 180);
+      }, 3600);
+    }
+
+    function setFetchLoading(loading) {
+      els.fetchBtn.disabled = loading;
+      els.fetchBtnLabel.innerHTML = loading
+        ? `جارٍ الجلب <span class="spin" aria-hidden="true"></span>`
+        : "جلب البيانات";
+    }
+
+    function resetResults() {
+      state.info = null;
+      state.selectedFormat = null;
+      state.completedFile = null;
+      els.loadingCard.classList.add("hidden");
+      els.infoCard.classList.add("hidden");
+      els.optionsCard.classList.add("hidden");
+      els.progressCard.classList.add("hidden");
+      els.progressActions.classList.add("hidden");
+      els.emptyCard.classList.remove("hidden");
+      if (state.pollTimer) {
+        clearInterval(state.pollTimer);
+        state.pollTimer = null;
+      }
+      state.currentTaskId = null;
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      els.videoModeBtn.classList.toggle("active", mode === "video");
+      els.audioModeBtn.classList.toggle("active", mode === "audio");
+      els.videoModeBtn.setAttribute("aria-selected", String(mode === "video"));
+      els.audioModeBtn.setAttribute("aria-selected", String(mode === "audio"));
+      els.videoPanel.classList.toggle("hidden", mode !== "video");
+      els.audioPanel.classList.toggle("active", mode === "audio");
+
+      if (mode === "audio") {
+        els.downloadBtn.disabled = !state.info;
+        els.downloadBtn.textContent = "🎵 تنزيل الصوت MP3";
+        els.optionsNote.textContent = "سيتم استخراج أفضل صوت وتحويله إلى MP3";
+      } else {
+        els.downloadBtn.disabled = !state.selectedFormat;
+        els.downloadBtn.textContent = "⬇️ تنزيل الفيديو";
+        els.optionsNote.textContent = "اختر إحدى الصيغ المتاحة";
+      }
+    }
+
+    const PLATFORM_LABELS = {
+      youtube: "YouTube",
+      tiktok: "TikTok",
+      instagram: "Instagram"
+    };
+
+    function platformLabel(platform) {
+      return PLATFORM_LABELS[String(platform || "").toLowerCase()] || "فيديو";
+    }
+
+    function renderInfo(data) {
+      const duration = formatDuration(data.duration, data.duration_string);
+      const uploader = data.uploader || "حساب غير معروف";
+
+      els.infoCard.innerHTML = `
+        <div class="thumb-wrap">
+          ${
+            data.thumbnail
+              ? `<img src="${escapeHtml(data.thumbnail)}" alt="صورة مصغرة للفيديو" loading="lazy" referrerpolicy="no-referrer">`
+              : `<div style="width:100%;height:100%;display:grid;place-items:center;color:var(--muted);font-size:2rem">▶</div>`
+          }
+          <div class="thumb-fade"></div>
+          <span class="duration-badge">⏱ ${escapeHtml(duration)}</span>
+        </div>
+        <div class="info-body">
+          <div class="eyebrow">
+            <span class="chip">${escapeHtml(platformLabel(data.platform))}</span>
+            <span class="chip">${escapeHtml(uploader)}</span>
+          </div>
+          <h2 class="title">${escapeHtml(data.title || "بدون عنوان")}</h2>
+          <p class="meta">${escapeHtml(duration)}${data.id ? ` · ID: ${escapeHtml(data.id)}` : ""}</p>
+        </div>
+      `;
+
+      els.infoCard.classList.remove("hidden");
+    }
+
+    function renderFormats(formats) {
+      els.qualityGrid.innerHTML = "";
+
+      // The backend intentionally returns only the six supported UI tiers.
+      // Keep the order fixed so the interface never exposes provider-specific
+      // heights such as 840p or width values such as 1920.
+      const available = new Map();
+      const qualities = Array.isArray(formats?.qualities) ? formats.qualities : [];
+
+      for (const format of qualities) {
+        const height = Number(format?.quality || format?.height);
+        if (STANDARD_QUALITY_ORDER.includes(height) && !available.has(height)) {
+          available.set(height, {
+            ...format,
+            quality: height,
+            fps: Number(format?.fps) || 0,
+          });
+        }
+      }
+
+      const allChoices = STANDARD_QUALITY_ORDER.map((height) => available.get(height) || {
+        quality: height,
+        height,
+        fps: 0,
+        unavailable: true,
+      });
+
+      const usable = allChoices.filter((format) => !format.unavailable);
+      // نختار افتراضيًا جودة متوسطة (720p فإن لم تتوفر فأقرب جودة أقل توفرًا)
+      // بدل أعلى جودة تلقائيًا، لأن اختيار 1080p دائمًا يبطئ التحميل ويستهلك
+      // بيانات أكثر مما يحتاجه أغلب المستخدمين على الهاتف. يبقى بإمكان
+      // المستخدم رفع الجودة يدويًا من القائمة بضغطة واحدة.
+      const PREFERRED_DEFAULT_HEIGHT = 720;
+      state.selectedFormat =
+        usable.find((format) => format.quality === PREFERRED_DEFAULT_HEIGHT) ||
+        usable.find((format) => format.quality < PREFERRED_DEFAULT_HEIGHT) ||
+        usable[0] ||
+        null;
+
+      for (const [index, format] of allChoices.entries()) {
+        const id = `quality-${format.quality}`;
+        const availableNow = !format.unavailable && !!format.format_id;
+        const label = `${format.quality}p`;
+        const fps = Number(format.fps) || 0;
+        const secondary = !availableNow
+          ? "غير متوفرة لهذا الفيديو"
+          : fps >= 50
+            ? `حتى ${Math.round(fps)} FPS · ${format.has_audio ? "فيديو + صوت" : "فيديو + صوت تلقائي"}`
+            : (format.has_audio ? "فيديو + صوت" : "فيديو + صوت تلقائي");
+        const size = availableNow ? (format.filesize || "الحجم غير معروف") : "—";
+        const safeValue = escapeHtml(String(format.format_id ?? ""));
+
+        const wrapper = document.createElement("div");
+        wrapper.className = `quality-option${availableNow ? "" : " unavailable"}`;
+        wrapper.innerHTML = `
+          <input
+            id="${id}"
+            type="radio"
+            name="quality"
+            value="${safeValue}"
+            ${availableNow && state.selectedFormat === format ? "checked" : ""}
+            ${availableNow ? "" : "disabled"}
+          >
+          <label for="${id}">
+            <span class="quality-main">
+              <span class="quality-icon" aria-hidden="true">${format.quality}</span>
+              <span class="quality-text">
+                <span class="quality-name">${label}</span>
+                <span class="quality-sub">${escapeHtml(secondary)}</span>
+              </span>
+            </span>
+            <span class="quality-size">${escapeHtml(size)}</span>
+          </label>
+        `;
+
+        if (availableNow) {
+          const radio = wrapper.querySelector("input");
+          radio.addEventListener("change", () => {
+            const selected = allChoices.find((item) => String(item.format_id) === radio.value);
+            state.selectedFormat = selected && !selected.unavailable ? selected : null;
+            els.downloadBtn.disabled = !state.selectedFormat;
+          });
+        }
+
+        els.qualityGrid.appendChild(wrapper);
+      }
+
+      // بعض المنصات (شائع في TikTok/Instagram) لا تعيد أي جودة من الدقات
+      // القياسية الستة. بدل ترك المستخدم بدون أي خيار، نعرض الجودات الفعلية
+      // التي أعادها الفيديو كما هي — بارتفاعها الحقيقي، دون ادّعاء أنها إحدى
+      // الدقات القياسية.
+      const otherQualities = Array.isArray(formats?.other_qualities) ? formats.other_qualities : [];
+      if (!usable.length && otherQualities.length) {
+        for (const format of otherQualities) {
+          const availableNow = !!format?.format_id;
+          if (!availableNow) continue;
+
+          const heightLabel = format.height ? `${format.height}p` : "جودة متاحة";
+          const id = `quality-other-${escapeHtml(String(format.format_id))}`;
+          const safeValue = escapeHtml(String(format.format_id ?? ""));
+          const size = format.filesize || "الحجم غير معروف";
+
+          const wrapper = document.createElement("div");
+          wrapper.className = "quality-option";
+          wrapper.innerHTML = `
+            <input
+              id="${id}"
+              type="radio"
+              name="quality"
+              value="${safeValue}"
+              ${state.selectedFormat === format ? "checked" : ""}
+            >
+            <label for="${id}">
+              <span class="quality-main">
+                <span class="quality-icon" aria-hidden="true">${escapeHtml(String(format.height || "؟"))}</span>
+                <span class="quality-text">
+                  <span class="quality-name">${escapeHtml(heightLabel)}</span>
+                  <span class="quality-sub">أقرب جودة متاحة لهذا الفيديو · ${format.has_audio ? "فيديو + صوت" : "فيديو + صوت تلقائي"}</span>
+                </span>
+              </span>
+              <span class="quality-size">${escapeHtml(size)}</span>
+            </label>
+          `;
+
+          const radio = wrapper.querySelector("input");
+          radio.addEventListener("change", () => {
+            const selected = otherQualities.find((item) => String(item.format_id) === radio.value);
+            state.selectedFormat = selected || null;
+            els.downloadBtn.disabled = !state.selectedFormat;
+          });
+
+          els.qualityGrid.appendChild(wrapper);
+        }
+
+        // أفضل جودة متاحة (أول عنصر، لأن الباك-إند يرتبها تنازليًا) تُختار افتراضيًا.
+        const firstOther = otherQualities.find((format) => !!format?.format_id);
+        if (firstOther) {
+          state.selectedFormat = firstOther;
+          const firstInput = els.qualityGrid.querySelector("input[type=radio]");
+          if (firstInput) firstInput.checked = true;
+        }
+      } else if (!usable.length) {
+        els.qualityGrid.insertAdjacentHTML("beforeend", `
+          <div style="grid-column:1/-1;padding:15px;border:1px dashed var(--border);border-radius:15px;color:var(--muted);font-size:.78rem">
+            لم يتم العثور على إحدى دقات الفيديو الأساسية لهذا الرابط. جرّب تحديث البيانات.
+          </div>
+        `);
+      }
+
+      els.optionsCard.classList.remove("hidden");
+      els.emptyCard.classList.add("hidden");
+      setMode("video");
+    }
+
+    async function fetchInfo() {
+      if (state.downloadActive) return;
+      const url = els.urlInput.value.trim();
+
+      if (!url) {
+        showToast("الرابط مطلوب", "ألصق رابط الفيديو أولًا.", "error");
+        els.urlInput.focus();
+        return;
+      }
+
+      if (!/^https?:\/\//i.test(url)) {
+        showToast("رابط غير صالح", "استخدم رابطًا يبدأ بـ https:// أو http://", "error");
+        return;
+      }
+
+      if (state.pollTimer) {
+        clearInterval(state.pollTimer);
+        state.pollTimer = null;
+      }
+
+      resetResults();
+      state.url = url;
+      setFetchLoading(true);
+      els.loadingCard.classList.remove("hidden");
+      els.emptyCard.classList.add("hidden");
+
+      try {
+        const data = await fetchJson("/api/info", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url })
+        }, 45000);
+
+        if (!data.success) {
+          throw new Error(data.error || "تعذّر جلب بيانات الفيديو.");
+        }
+
+        state.info = data.data || null;
+        els.loadingCard.classList.add("hidden");
+
+        if (!state.info) {
+          throw new Error("لم تصل بيانات الفيديو من السيرفر.");
+        }
+
+        renderInfo(state.info);
+        renderFormats(state.info.formats || {});
+        if (state.info.environment_warning) {
+          showToast("تنبيه إعداد", state.info.environment_warning, "info");
+        } else {
+          showToast("تم جلب البيانات", "اختر الجودة المناسبة ثم ابدأ التنزيل.", "success");
+        }
+      } catch (error) {
+        els.loadingCard.classList.add("hidden");
+        els.emptyCard.classList.remove("hidden");
+        showToast("تعذّر جلب الفيديو", error?.message || "حدث خطأ غير معروف.", "error");
+      } finally {
+        setFetchLoading(false);
+      }
+    }
+
+    async function startDownload() {
+      if (state.downloadActive) return;
+      if (!state.info) {
+        showToast("لا يوجد فيديو", "اجلب بيانات الفيديو أولًا.", "error");
+        return;
+      }
+
+      const audioOnly = state.mode === "audio";
+      const selected = state.selectedFormat;
+
+      if (!audioOnly && !selected) {
+        showToast("اختر الجودة", "حدد جودة الفيديو قبل بدء التنزيل.", "error");
+        return;
+      }
+
+      els.downloadBtn.disabled = true;
+      const originalText = els.downloadBtn.textContent;
+      els.downloadBtn.innerHTML = audioOnly
+        ? `جارٍ بدء تنزيل الصوت <span class="spin" aria-hidden="true"></span>`
+        : `جارٍ بدء التنزيل <span class="spin" aria-hidden="true"></span>`;
+
+      try {
+        const payload = {
+          url: state.url,
+          format_id: audioOnly ? null : selected?.format_id ?? null,
+          format_has_audio: audioOnly ? false : !!selected?.has_audio,
+          audio_only: audioOnly
+        };
+
+        const data = await fetchJson("/api/download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }, 15000);
+
+        if (!data.success) {
+          throw new Error(data.error || "تعذّر بدء التنزيل.");
+        }
+
+        state.currentTaskId = data.task_id;
+        state.completedFile = null;
+        persistActiveTask();
+        setInteractionLocked(true);
+        els.downloadBtn.disabled = true;
+        showProgress();
+        startPolling();
+        showToast("بدأ التنزيل", "سيتم الحفاظ على مهمة واحدة لتقليل استهلاك الهاتف.", "success");
+      } catch (error) {
+        setInteractionLocked(false);
+        els.downloadBtn.disabled = false;
+        showToast("تعذّر بدء التنزيل", error?.message || "حدث خطأ غير معروف.", "error");
+      } finally {
+        if (!state.downloadActive) {
+          els.downloadBtn.textContent = originalText || (state.mode === "audio" ? "🎵 تنزيل الصوت MP3" : "⬇️ تنزيل الفيديو");
+        }
+      }
+    }
+
+    function showProgress() {
+      els.progressCard.classList.remove("hidden");
+      els.progressActions.classList.add("hidden");
+      els.progressTitle.textContent = state.mode === "audio" ? "تنزيل الصوت" : "تنزيل الفيديو";
+      els.progressPercent.textContent = "0%";
+      els.progressBar.classList.remove("indeterminate");
+      els.progressBar.style.width = "0%";
+      state.postprocessStartedAt = null;
+      els.progressStatus.textContent = "في قائمة الانتظار...";
+      els.progressExtra.textContent = "";
+      els.progressCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    const ACTIVE_TASK_KEY = "video_downloader_active_task";
+
+    function persistActiveTask() {
+      if (!state.currentTaskId) return;
+      try {
+        localStorage.setItem(ACTIVE_TASK_KEY, JSON.stringify({
+          taskId: state.currentTaskId,
+          mode: state.mode
+        }));
+      } catch {
+        // localStorage قد يكون غير متاح في بعض أوضاع المتصفح.
+      }
+    }
+
+    function clearPersistedTask() {
+      try {
+        localStorage.removeItem(ACTIVE_TASK_KEY);
+      } catch {}
+    }
+
+    function restoreActiveTask() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(ACTIVE_TASK_KEY) || "null");
+        if (!saved || typeof saved.taskId !== "string" || !/^[0-9a-f-]{20,64}$/i.test(saved.taskId)) {
+          clearPersistedTask();
+          return;
+        }
+        state.currentTaskId = saved.taskId;
+        state.mode = saved.mode === "audio" ? "audio" : "video";
+        setInteractionLocked(true);
+        showProgress();
+        startPolling();
+        showToast("استئناف التنزيل", "تمت استعادة متابعة المهمة السابقة.", "info");
+      } catch {
+        clearPersistedTask();
+      }
+    }
+
+    function startPolling() {
+      stopPolling();
+      state.pollDelay = 1000;
+      schedulePoll();
+    }
+
+    function schedulePoll() {
+      if (!state.currentTaskId) return;
+      state.pollTimer = window.setTimeout(async () => {
+        await checkProgress();
+        if (state.currentTaskId) schedulePoll();
+      }, state.pollDelay);
+    }
+
+    function stopPolling() {
+      if (state.pollTimer) {
+        window.clearTimeout(state.pollTimer);
+        state.pollTimer = null;
+      }
+    }
+
+    async function checkProgress() {
+      if (!state.currentTaskId) return;
+
+      try {
+        const data = await fetchJson(
+          `/api/progress/${encodeURIComponent(state.currentTaskId)}`,
+          { cache: "no-store" },
+          9000
+        );
+        if (!data.success) throw new Error(data.error || "تعذّرت قراءة حالة التنزيل.");
+
+        const task = data.data || {};
+        state.pollDelay = 1000;
+        const percent = Math.max(0, Math.min(100, Number(task.percent) || 0));
+        els.progressPercent.textContent = `${percent}%`;
+
+        const isIndeterminatePhase = task.status === "postprocessing" || task.status === "finalizing";
+        els.progressBar.classList.toggle("indeterminate", isIndeterminatePhase);
+        if (!isIndeterminatePhase) {
+          els.progressBar.style.width = `${percent}%`;
+        }
+
+        if (task.status === "queued") {
+          els.progressStatus.textContent = "في قائمة الانتظار...";
+          els.progressExtra.textContent = "";
+          state.postprocessStartedAt = null;
+        } else if (task.status === "downloading") {
+          els.progressStatus.textContent = "جارٍ التنزيل...";
+          const speed = task.speed || "";
+          const eta = task.eta != null ? `متبقي ${task.eta}ث` : "";
+          els.progressExtra.textContent = [speed, eta].filter(Boolean).join(" · ");
+          state.postprocessStartedAt = null;
+        } else if (task.status === "postprocessing") {
+          if (!state.postprocessStartedAt) state.postprocessStartedAt = Date.now();
+          const elapsed = Math.max(0, Math.round((Date.now() - state.postprocessStartedAt) / 1000));
+          els.progressStatus.textContent = task.phase || "جارٍ تجهيز الملف...";
+          // فيديو كبير الحجم أو بدقة عالية قد يستغرق دمجه وقتًا حقيقيًا؛ عرض
+          // الوقت المنقضي يطمئن المستخدم أن العملية تعمل فعلًا وليست متجمّدة.
+          els.progressExtra.textContent = `ffmpeg · ${elapsed}ث`;
+        } else if (task.status === "finalizing") {
+          els.progressStatus.textContent = task.phase || "جاري حفظ الملف...";
+          els.progressExtra.textContent = "";
+        } else if (task.status === "completed") {
+          els.progressPercent.textContent = "100%";
+          els.progressBar.classList.remove("indeterminate");
+          els.progressBar.style.width = "100%";
+          state.postprocessStartedAt = null;
+          els.progressStatus.textContent = "اكتمل وحُفظ في مجلد التنزيلات.";
+          els.progressExtra.textContent = task.filename || "";
+          state.completedFile = task.filename || null;
+          els.progressActions.classList.toggle("hidden", !state.completedFile);
+          stopPolling();
+          state.currentTaskId = null;
+          clearPersistedTask();
+          setInteractionLocked(false);
+          els.downloadBtn.disabled = false;
+          showToast("اكتمل التنزيل", task.filename || "تم حفظ الملف بنجاح.", "success");
+        } else if (task.status === "error") {
+          els.progressStatus.textContent = "فشل التنزيل.";
+          els.progressBar.classList.remove("indeterminate");
+          state.postprocessStartedAt = null;
+          els.progressExtra.textContent = task.error || "حدث خطأ غير معروف.";
+          stopPolling();
+          state.currentTaskId = null;
+          clearPersistedTask();
+          setInteractionLocked(false);
+          els.downloadBtn.disabled = false;
+          showToast("فشل التنزيل", task.error || "حدث خطأ أثناء التنزيل.", "error");
+        }
+      } catch (error) {
+        state.pollDelay = Math.min(5000, Math.round(state.pollDelay * 1.5));
+        els.progressStatus.textContent = "جارٍ إعادة الاتصال بحالة التنزيل...";
+        els.progressExtra.textContent = error?.message || "";
+      }
+    }
+
+    function openCompletedFile() {
+      if (!state.completedFile) return;
+      window.location.href = `/downloads/${encodeURIComponent(state.completedFile)}`;
+    }
+
+    async function pasteFromClipboard() {
+      try {
+        if (!navigator.clipboard?.readText) {
+          showToast("الحافظة غير متاحة", "ألصق الرابط يدويًا في الحقل.", "info");
+          return;
+        }
+        const text = (await navigator.clipboard.readText()).trim();
+        if (!text) {
+          showToast("الحافظة فارغة", "انسخ رابط الفيديو أولًا.", "info");
+          return;
+        }
+        els.urlInput.value = text;
+        els.urlInput.focus();
+      } catch {
+        showToast("تعذر الوصول للحافظة", "ألصق الرابط يدويًا في الحقل.", "info");
+      }
+    }
+
+    els.fetchBtn.addEventListener("click", fetchInfo);
+    els.downloadBtn.addEventListener("click", startDownload);
+    els.openFileBtn.addEventListener("click", openCompletedFile);
+    els.pasteBtn.addEventListener("click", pasteFromClipboard);
+
+    els.clearBtn.addEventListener("click", () => {
+      els.urlInput.value = "";
+      els.urlInput.focus();
+      resetResults();
+    });
+
+    els.urlInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        fetchInfo();
+      }
+    });
+
+    els.urlInput.addEventListener("input", () => {
+      if (!els.urlInput.value.trim()) resetResults();
+    });
+
+    els.videoModeBtn.addEventListener("click", () => setMode("video"));
+    els.audioModeBtn.addEventListener("click", () => setMode("audio"));
+
+    async function checkServerHealth() {
+      try {
+        const result = await fetchJson("/api/health", { cache: "no-store" }, 7000);
+        const data = result.data || {};
+        updateServerStatus(data.full_youtube_support ? "ready" : "warning");
+      } catch {
+        updateServerStatus("error");
+      }
+    }
+
+    // حالة أولية.
+    setMode("video");
+    checkServerHealth();
+    restoreActiveTask();
+  </script>
+</body>
+</html>
