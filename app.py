@@ -26,7 +26,7 @@ def add_security_headers(response):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
-    response.headers.setdefault("Content-Security-Policy", "default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'")
+    response.headers.setdefault("Content-Security-Policy", "default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'")
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     response.headers.setdefault("Cache-Control", "no-store")
     return response
@@ -90,6 +90,13 @@ def request_too_large(_error):
 def api_progress(task_id):
     result = downloader.get_task_status(task_id)
     return jsonify(result), 200 if result.get("success") else 404
+
+
+@app.route("/api/open", methods=["POST"])
+def api_open():
+    payload = _json_payload()
+    result = downloader.open_downloaded_file(payload.get("filename"))
+    return jsonify(result), 200 if result.get("success") else 400
 
 
 @app.route("/downloads/<path:filename>", methods=["GET"])
