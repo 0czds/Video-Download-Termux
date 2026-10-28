@@ -895,7 +895,9 @@
         const response = await fetch(url, { ...options, signal: controller.signal });
         const data = await response.json().catch(() => null);
         if (!response.ok || !data) {
-          throw new Error(data?.error || `خطأ من السيرفر (${response.status})`);
+          const error = new Error(data?.error || `خطأ من السيرفر (${response.status})`);
+          error.status = response.status;
+          throw error;
         }
         return data;
       } catch (error) {
@@ -1060,6 +1062,9 @@
       });
 
       const usable = allChoices.filter((format) => !format.unavailable);
+      // عند عدم وجود أي جودة قياسية نعرض الجودات الفعلية فقط، بلا صفوف الدقات الستة المعطّلة.
+      const otherQualities = Array.isArray(formats?.other_qualities) ? formats.other_qualities : [];
+      const fallbackMode = !usable.length && otherQualities.length > 0;
       // نختار افتراضيًا جودة متوسطة (720p فإن لم تتوفر فأقرب جودة أقل توفرًا)
       // بدل أعلى جودة تلقائيًا، لأن اختيار 1080p دائمًا يبطئ التحميل ويستهلك
       // بيانات أكثر مما يحتاجه أغلب المستخدمين على الهاتف. يبقى بإمكان
@@ -1071,7 +1076,7 @@
         usable[0] ||
         null;
 
-      for (const [index, format] of allChoices.entries()) {
+      for (const [index, format] of (fallbackMode ? [] : allChoices).entries()) {
         const id = `quality-${format.quality}`;
         const availableNow = !format.unavailable && !!format.format_id;
         const label = `${format.quality}p`;
@@ -1123,7 +1128,6 @@
       // القياسية الستة. بدل ترك المستخدم بدون أي خيار، نعرض الجودات الفعلية
       // التي أعادها الفيديو كما هي — بارتفاعها الحقيقي، دون ادّعاء أنها إحدى
       // الدقات القياسية.
-      const otherQualities = Array.isArray(formats?.other_qualities) ? formats.other_qualities : [];
       if (!usable.length && otherQualities.length) {
         for (const format of otherQualities) {
           const availableNow = !!format?.format_id;
@@ -1170,7 +1174,7 @@
         const firstOther = otherQualities.find((format) => !!format?.format_id);
         if (firstOther) {
           state.selectedFormat = firstOther;
-          const firstInput = els.qualityGrid.querySelector("input[type=radio]");
+          const firstInput = els.qualityGrid.querySelector(`input[type=radio][value="${CSS.escape(String(firstOther.format_id))}"]`);
           if (firstInput) firstInput.checked = true;
         }
       } else if (!usable.length) {
@@ -1217,7 +1221,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url })
-        }, 45000);
+        }, 90000);
 
         if (!data.success) {
           throw new Error(data.error || "تعذّر جلب بيانات الفيديو.");
@@ -1426,7 +1430,7 @@
           els.progressStatus.textContent = "اكتمل وحُفظ في مجلد التنزيلات.";
           els.progressExtra.textContent = task.filename || "";
           state.completedFile = task.filename || null;
-          els.progressActions.classList.toggle("hidden", !state.completedFile);
+          els.progressActions.classList.toggle("hidden", !(state.completedFile && state.canOpen));
           stopPolling();
           state.currentTaskId = null;
           clearPersistedTask();
@@ -1446,15 +1450,41 @@
           showToast("فشل التنزيل", task.error || "حدث خطأ أثناء التنزيل.", "error");
         }
       } catch (error) {
+        if (error?.status === 404) {
+          // المهمة غير موجودة (أُعيد تشغيل السيرفر أو انتهت صلاحيتها): نوقف
+          // المتابعة ونفك قفل الواجهة بدل إعادة المحاولة إلى ما لا نهاية.
+          stopPolling();
+          state.currentTaskId = null;
+          clearPersistedTask();
+          state.postprocessStartedAt = null;
+          els.progressBar.classList.remove("indeterminate");
+          els.progressStatus.textContent = "فشل التنزيل.";
+          els.progressExtra.textContent = "انتهت صلاحية المهمة أو أُعيد تشغيل السيرفر. أعد المحاولة.";
+          setInteractionLocked(false);
+          showToast("فشل التنزيل", "انتهت صلاحية المهمة أو أُعيد تشغيل السيرفر. أعد المحاولة.", "error");
+          return;
+        }
         state.pollDelay = Math.min(5000, Math.round(state.pollDelay * 1.5));
         els.progressStatus.textContent = "جارٍ إعادة الاتصال بحالة التنزيل...";
         els.progressExtra.textContent = error?.message || "";
       }
     }
 
-    function openCompletedFile() {
+    async function openCompletedFile() {
       if (!state.completedFile) return;
-      window.location.href = `/downloads/${encodeURIComponent(state.completedFile)}`;
+      try {
+        // نفتح الملف المحفوظ على الجهاز بدل تنزيل نسخة ثانية منه عبر المتصفح.
+        const data = await fetchJson("/api/open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: state.completedFile })
+        }, 15000);
+        if (!data.success) {
+          throw new Error(data.error || "تعذّر فتح الملف.");
+        }
+      } catch (error) {
+        showToast("تعذّر فتح الملف", error?.message || "حدث خطأ غير معروف.", "error");
+      }
     }
 
     async function pasteFromClipboard() {
@@ -1505,6 +1535,7 @@
         const result = await fetchJson("/api/health", { cache: "no-store" }, 7000);
         const data = result.data || {};
         updateServerStatus(data.full_youtube_support ? "ready" : "warning");
+        state.canOpen = !!data.termux_open;
       } catch {
         updateServerStatus("error");
       }
