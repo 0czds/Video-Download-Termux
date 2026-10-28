@@ -20,7 +20,11 @@ echo "[3/5] Downloading project..."
 
 if [ -d "$INSTALL_DIR/.git" ]; then
     echo "Project already exists. Updating..."
-    git -C "$INSTALL_DIR" pull
+    if ! git -C "$INSTALL_DIR" diff --quiet || ! git -C "$INSTALL_DIR" diff --cached --quiet; then
+        echo "توجد تعديلات محلية على ملفات المشروع. احفظها أو انسخها احتياطيًا قبل التحديث."
+        exit 1
+    fi
+    git -C "$INSTALL_DIR" pull --ff-only
 else
     if [ -d "$INSTALL_DIR" ]; then
         echo "Existing folder found."
