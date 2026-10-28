@@ -57,6 +57,8 @@ MAX_QUEUED_DOWNLOADS = min(max(_safe_int_env("MAX_QUEUED_DOWNLOADS", 1), 0), 2)
 TASK_TTL_SECONDS = max(_safe_int_env("TASK_TTL_SECONDS", 21600), 900)
 MAX_TASKS = min(max(_safe_int_env("MAX_TASKS", 50), 10), 200)
 INFO_TIMEOUT_SECONDS = max(_safe_int_env("INFO_TIMEOUT_SECONDS", 35), 10)
+# أقصى انتظار للحصول على INFO_SLOT قبل رفض الطلب بأنه "مشغول" (بالثواني).
+INFO_WAIT_SECONDS = min(max(_safe_int_env("INFO_WAIT_SECONDS", 20), 1), 60)
 
 _RUNTIME_CACHE = None
 
@@ -124,6 +126,8 @@ ALLOWED_HOSTS = frozenset(_PLATFORM_HOSTS)
 
 DOWNLOAD_TASKS: dict[str, dict] = {}
 TASKS_LOCK = threading.RLock()
+# مسارات الملفات الجزئية لكل مهمة (task_id -> مجموعة مسارات)، محمية بـ TASKS_LOCK.
+_TASK_PARTIAL_FILES: dict[str, set] = {}
 DOWNLOAD_SLOTS = threading.BoundedSemaphore(MAX_ACTIVE_DOWNLOADS)
 INFO_SLOT = threading.BoundedSemaphore(1)
 FORMAT_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
@@ -221,6 +225,7 @@ def get_environment_status() -> dict:
         "yt_dlp": version,
         "ffmpeg": bool(ffmpeg),
         "ffprobe": bool(ffprobe),
+        "termux_open": bool(shutil.which("termux-open")),
         "js_runtime": runtime,
         "js_runtime_path": runtime_path,
         "full_youtube_support": bool(runtime and ffmpeg and ffprobe),
@@ -272,6 +277,22 @@ def _format_bitrate(f) -> float:
 
 STANDARD_VIDEO_HEIGHTS = (1080, 720, 480, 360, 240, 144)
 
+# امتدادات تُعتبر فيديو/صوت عندما يكون الـ codec مجهولًا تمامًا (None).
+_UNKNOWN_CODEC_VIDEO_EXTS = ("mp4", "webm", "mov", "mkv", "m4v")
+_AUDIO_EXTS = ("m4a", "mp3", "opus", "ogg", "aac", "wav", "flac")
+
+
+def _codec_compat_rank(f) -> int:
+    """ترتيب توافق الـ codec مع معارض الهواتف عند دمج الفيديو في MP4:
+    2 لـ avc1/h264، و1 لـ VP9 وHEVC وأي codec غير معروف، و0 لـ AV1 أو HDR."""
+    vcodec = str(f.get("vcodec") or "").lower()
+    dynamic_range = str(f.get("dynamic_range") or "").strip().upper()
+    if vcodec.startswith("av01") or (dynamic_range and dynamic_range != "SDR"):
+        return 0
+    if vcodec.startswith(("avc1", "h264")):
+        return 2
+    return 1
+
 
 def _classify_formats(formats):
     """Return the six UI quality tiers requested by the app, plus a safe
@@ -305,7 +326,17 @@ def _classify_formats(formats):
         has_video = bool(vcodec and vcodec != "none")
         has_audio = bool(acodec and acodec != "none")
         if not has_video and not has_audio:
-            continue
+            # الـ codec مجهول تمامًا (None وليس "none"): نعامله كفيديو بلا صوت
+            # إذا دلّت الأبعاد أو الامتداد على فيديو، وإلا نتخطاه كما كان.
+            if (
+                vcodec is None
+                and acodec is None
+                and (f.get("width") or f.get("height") or ext in _UNKNOWN_CODEC_VIDEO_EXTS)
+                and ext not in _AUDIO_EXTS
+            ):
+                has_video = True
+            else:
+                continue
 
         height = _format_height(f)
         width = f.get("width")
@@ -329,11 +360,13 @@ def _classify_formats(formats):
 
             # One entry per visible quality. Prefer FPS first so a real 60fps
             # 1080p stream wins over a 30fps stream at the same height.
+            # التوافق (avc1 أولًا) يسبق معدل البت حتى لا يفوز VP9/AV1/HDR بمجرد
+            # أن معدله أعلى، لأن الدمج في MP4 بلا إعادة ترميز لا تشغّله كل المعارض.
             score = (
                 _format_fps(f),
-                _format_bitrate(f),
+                _codec_compat_rank(f),
                 1 if ext == "mp4" else 0,
-                1 if str(vcodec or "").lower().startswith("avc1") else 0,
+                _format_bitrate(f),
                 1 if has_audio else 0,
             )
 
@@ -341,9 +374,10 @@ def _classify_formats(formats):
                 current = best_by_quality.get(height)
                 if current is None or score > current[2]:
                     best_by_quality[height] = (entry, f, score)
-            elif height:
+            else:
                 # Non-standard height: kept aside, never relabeled as a
                 # standard tier. Deduplicated by height, keeping the best.
+                # الصيغ بلا ارتفاع تدخل هنا أيضًا بدل أن تختفي (تُدمج بحسب format_id).
                 other_video.append((entry, score))
         else:
             # Keep only valid audio streams for the MP3/audio workflow.
@@ -376,11 +410,12 @@ def _classify_formats(formats):
         best_other: dict[int, tuple[dict, tuple]] = {}
         for entry, score in other_video:
             h = entry["height"]
-            current = best_other.get(h)
+            key = h if h else ("id", entry["format_id"])
+            current = best_other.get(key)
             if current is None or score > current[1]:
-                best_other[h] = (entry, score)
+                best_other[key] = (entry, score)
         other_qualities = [
-            item[0] for item in sorted(best_other.values(), key=lambda item: item[0]["height"], reverse=True)
+            item[0] for item in sorted(best_other.values(), key=lambda item: item[0]["height"] or 0, reverse=True)
         ][:6]
 
     audio_only.sort(key=lambda f: float(f.get("abr") or 0), reverse=True)
@@ -449,6 +484,11 @@ def _public_error(exc: Exception, platform: str | None = None) -> str:
     msg = _clean_error(exc).lower()
     platform_name = _PLATFORM_DISPLAY_NAMES.get(platform or "")
 
+    # فحص "التحقق من أنك لست روبوتًا" أولًا، لأن عبارة "sign in" العامة أدناه
+    # كانت تلتقطه وتُظهر رسالة الخصوصية بدل رسالته. لا نطابق "sign in to confirm"
+    # لأن "Sign in to confirm your age" يجب أن تبقى على الرسالة العامة.
+    if "not a bot" in msg:
+        return "YouTube يطلب تحققًا إضافيًا لهذا الطلب. جرّب تحديث yt-dlp وإعداد JavaScript runtime."
     if "private" in msg or "sign in" in msg or "login" in msg or "log in" in msg:
         if platform == "instagram":
             return "هذا المحتوى من Instagram غير متاح للتنزيل حاليًا، أو يتطلب تسجيل الدخول."
@@ -457,7 +497,8 @@ def _public_error(exc: Exception, platform: str | None = None) -> str:
         return "هذا المحتوى خاص ويتطلب صلاحيات إضافية، أو يتطلب تسجيل الدخول ولا يمكن للتطبيق الوصول إليه بهذه الحالة."
     if "unsupported url" in msg or "is not a valid url" in msg or "no extractor" in msg:
         return "الرابط غير مدعوم أو غير صالح."
-    if ("rate" in msg and "limit" in msg) or "429" in msg or "too many requests" in msg:
+    # الرقم 429 يُطابق كرمز حالة مستقل فقط، لأن معرّفات الفيديو (مثل TikTok) قد تحتويه.
+    if ("rate" in msg and "limit" in msg) or re.search(r"(?<![A-Za-z0-9_-])429(?![A-Za-z0-9_-])", msg) or "too many requests" in msg:
         return "الخدمة رفضت الطلبات مؤقتًا. انتظر قليلًا ثم أعد المحاولة."
     # فحص "timed out" قبل الفحص العام لكلمة "connection"، لأن رسائل timeout
     # الفعلية من مكتبات الشبكة غالبًا تحتوي الكلمتين معًا (مثل
@@ -474,8 +515,6 @@ def _public_error(exc: Exception, platform: str | None = None) -> str:
         if platform == "instagram":
             return "هذا المحتوى من Instagram غير متاح للتنزيل حاليًا، أو يتطلب تسجيل الدخول."
         return "تعذّر العثور على الفيديو. ربما تم حذفه أو أصبح غير متاح، أو أنه محظور في منطقتك."
-    if "sign in to confirm" in msg or "confirm you're not a bot" in msg:
-        return "YouTube يطلب تحققًا إضافيًا لهذا الطلب. جرّب تحديث yt-dlp وإعداد JavaScript runtime."
     if "requested format is not available" in msg or "no video formats found" in msg:
         return "الصيغة المطلوبة غير متاحة لهذا الفيديو. أعد جلب البيانات واختَر صيغة أخرى."
     if "unsupported" in msg:
@@ -488,6 +527,8 @@ def _public_error(exc: Exception, platform: str | None = None) -> str:
         return "توقف التنزيل لأن مساحة التخزين المتبقية على الجهاز أصبحت منخفضة جدًا. حرّر بعض المساحة ثم أعد المحاولة."
     if "no space" in msg or "permission denied" in msg or "errno 13" in msg or "errno 28" in msg:
         return "تعذّر حفظ الملف. تحقق من مساحة التخزين وصلاحيات مجلد التنزيل."
+    if "file name too long" in msg or "errno 36" in msg:
+        return "اسم الملف طويل جدًا لنظام الملفات. جرّب فيديو بعنوان أقصر."
     return "حدث خطأ غير متوقع أثناء معالجة الفيديو."
 
 
@@ -525,7 +566,7 @@ def extract_video_info(url):
 
     platform = detect_platform(url)
 
-    if not INFO_SLOT.acquire(timeout=1):
+    if not INFO_SLOT.acquire(timeout=INFO_WAIT_SECONDS):
         return {"success": False, "error": "السيرفر مشغول بجلب بيانات فيديو آخر. أعد المحاولة بعد لحظات."}
 
     try:
@@ -635,23 +676,45 @@ def _download_guard_error(total_bytes, downloaded_bytes, free_mb, needs_merge) -
     return None
 
 
-def _make_progress_hook(task_id, needs_merge=False):
+def _make_progress_hook(task_id, needs_merge=False, expected_files=1):
     # فحص مساحة القرص مكلف نسبيًا، فنكرره كل بضع ثوانٍ فقط (وفي أول استدعاء
     # لنعرف مبكرًا إن كان الفيديو أكبر من المتاح) بدل كل استدعاء للـ hook.
     last_disk_check = {"t": 0.0}
+    # عند تنزيل الفيديو والصوت كملفين منفصلين نرقّم كل ملف بترتيب ظهوره، ونحتفظ
+    # بأعلى نسبة أُعلنت حتى لا يرجع الشريط للخلف، وبمجموع بايتات الملفات المنتهية
+    # حتى يحسب فحص الحجم/المساحة الملفين معًا وليس الملف الحالي فقط.
+    file_indexes = {}
+    finished_files = set()
+    progress = {"percent": 0.0, "finished_bytes": 0}
+    expected = max(1, int(expected_files))
 
     def hook(d):
         status = d.get("status")
+        if status in ("downloading", "finished"):
+            # نسجّل مسارات الملفات الجزئية لحذفها لاحقًا إن رُفض الملف لكبر حجمه.
+            partial = {path for path in (d.get("tmpfilename"), d.get("filename")) if path}
+            if partial:
+                with TASKS_LOCK:
+                    _TASK_PARTIAL_FILES.setdefault(task_id, set()).update(partial)
         if status == "downloading":
             total = d.get("total_bytes") or d.get("total_bytes_estimate")
             downloaded = d.get("downloaded_bytes", 0)
-            percent = (downloaded / total * 100) if total else 0
+            file_index = file_indexes.setdefault(d.get("filename"), len(file_indexes))
+            file_fraction = min(downloaded / total, 1) if total else 0
+            percent = ((file_index + file_fraction) / expected) * 99
+            percent = max(progress["percent"], percent)
+            percent = max(0, min(99, percent))
+            progress["percent"] = percent
 
             now = time.time()
             if now - last_disk_check["t"] > 5:
                 last_disk_check["t"] = now
+                finished_bytes = progress["finished_bytes"]
                 reason = _download_guard_error(
-                    total, downloaded, _free_disk_mb(DOWNLOADS_DIR), needs_merge
+                    finished_bytes + (total or 0),
+                    finished_bytes + downloaded,
+                    _free_disk_mb(DOWNLOADS_DIR),
+                    needs_merge,
                 )
                 if reason:
                     # رفع استثناء داخل الـ hook يوقف yt-dlp. الملفات الجزئية
@@ -661,22 +724,57 @@ def _make_progress_hook(task_id, needs_merge=False):
             _task_update(
                 task_id,
                 status="downloading",
-                percent=round(max(0, min(99, percent)), 1),
+                percent=round(percent, 1),
                 speed=_human_readable_size(d.get("speed") or 0) + "/s" if d.get("speed") else "",
                 eta=d.get("eta"),
             )
         elif status == "finished":
-            _task_update(
-                task_id,
-                percent=99.0,
-                status="finalizing",
-                speed="",
-                eta=None,
-            )
+            filename = d.get("filename")
+            file_index = file_indexes.setdefault(filename, len(file_indexes))
+            if filename not in finished_files:
+                finished_files.add(filename)
+                progress["finished_bytes"] += d.get("total_bytes") or d.get("downloaded_bytes") or 0
+            if file_index + 1 < expected:
+                # بقي ملف آخر (مثل الصوت): نكمل "جارٍ التنزيل" بلا 99% ولا finalizing.
+                percent = max(progress["percent"], (file_index + 1) / expected * 99)
+                progress["percent"] = percent
+                _task_update(
+                    task_id,
+                    status="downloading",
+                    percent=round(percent, 1),
+                    speed="",
+                    eta=None,
+                )
+            else:
+                progress["percent"] = 99.0
+                _task_update(
+                    task_id,
+                    percent=99.0,
+                    status="finalizing",
+                    speed="",
+                    eta=None,
+                )
         elif status == "error":
             _task_update(task_id, status="error", error="حدث خطأ أثناء التنزيل.")
 
     return hook
+
+
+def _cleanup_partial_files(task_id):
+    """يحذف الملفات الجزئية (وملفات .ytdl الجانبية) لمهمة رُفضت لكبر حجمها،
+    وفقط إن كانت داخل DOWNLOADS_DIR. لا تُستدعى عند نقص المساحة لأن الاستئناف
+    مقصود في تلك الحالة."""
+    with TASKS_LOCK:
+        paths = set(_TASK_PARTIAL_FILES.get(task_id, ()))
+    root = os.path.realpath(DOWNLOADS_DIR)
+    for path in paths:
+        for candidate in (path, path + ".ytdl"):
+            try:
+                real = os.path.realpath(candidate)
+                if real.startswith(root + os.sep) and os.path.isfile(real):
+                    os.remove(real)
+            except OSError:
+                pass
 
 
 def _make_postprocessor_hook(task_id):
@@ -776,12 +874,21 @@ def start_download_task(url, format_choice, audio_only=False, format_has_audio=F
             "finished_at": None,
         }
 
-    outtmpl = os.path.join(DOWNLOADS_DIR, "%(title).100s-%(id)s.%(ext)s")
+    # حد الاسم في أندرويد 255 بايت وليس حرفًا؛ الحروف الصينية/الإيموجي تأخذ 3-4 بايت.
+    # 45 حرفًا × 4 + المعرّف + لاحقة .fNNN.mp4.part تبقى دون 255 بايت في أسوأ حالة.
+    outtmpl = os.path.join(DOWNLOADS_DIR, "%(title).45s-%(id)s.%(ext)s")
     ydl_opts = _base_ydl_opts(for_download=True)
     ydl_opts.update(
         {
             "outtmpl": outtmpl,
-            "progress_hooks": [_make_progress_hook(task_id, needs_merge=needs_ffmpeg)],
+            "progress_hooks": [
+                _make_progress_hook(
+                    task_id,
+                    needs_merge=needs_ffmpeg,
+                    # فيديو + صوت منفصلان = ملفان يُنزَّلان بالتتابع.
+                    expected_files=2 if (not audio_only and not format_has_audio) else 1,
+                )
+            ],
             "postprocessor_hooks": [_make_postprocessor_hook(task_id)],
             "overwrites": False,
         }
@@ -802,7 +909,8 @@ def start_download_task(url, format_choice, audio_only=False, format_has_audio=F
                 "preferredquality": "192",
             }
         ]
-        ydl_opts["postprocessor_args"] = {"ExtractAudio": ["-threads", ffmpeg_threads]}
+        # مفاتيح postprocessor_args في yt-dlp تُقرأ بحروف صغيرة، وإلا تُهمل بصمت.
+        ydl_opts["postprocessor_args"] = {"extractaudio": ["-threads", ffmpeg_threads]}
     elif format_choice:
         if format_has_audio:
             ydl_opts["format"] = str(format_choice)
@@ -819,7 +927,7 @@ def start_download_task(url, format_choice, audio_only=False, format_has_audio=F
             # المعالج، وهو تأثير طفيف هنا لأن الفيديو أصلًا copy بلا ترميز،
             # لكنه يبقي هامش أمان على الهواتف الأضعف.
             ydl_opts["postprocessor_args"] = {
-                "Merger+ffmpeg_o": [
+                "merger+ffmpeg_o": [
                     "-c:v", "copy",
                     "-c:a", "aac",
                     "-b:a", "192k",
@@ -831,7 +939,7 @@ def start_download_task(url, format_choice, audio_only=False, format_has_audio=F
         ydl_opts["format"] = "bestvideo+bestaudio/best"
         ydl_opts["merge_output_format"] = "mp4"
         ydl_opts["postprocessor_args"] = {
-            "Merger+ffmpeg_o": [
+            "merger+ffmpeg_o": [
                 "-c:v", "copy",
                 "-c:a", "aac",
                 "-b:a", "192k",
@@ -913,6 +1021,10 @@ def _run_download(task_id, url, ydl_opts, needs_ffmpeg, platform=None):
             phase="فشل التنزيل.",
             finished_at=time.time(),
         )
+        # نحذف الملفات الجزئية عند رفض "الحجم الأكبر من الحد" فقط، وليس عند
+        # نقص المساحة (لأن الاستئناف بعد تحرير المساحة مقصود).
+        if "file too large" in _clean_error(exc).lower():
+            _cleanup_partial_files(task_id)
     except Exception:
         logger.exception("_run_download unexpected error (platform=%s, task=%s)", platform, task_id)
         _task_update(
@@ -927,6 +1039,8 @@ def _run_download(task_id, url, ydl_opts, needs_ffmpeg, platform=None):
         # يضمن تحرير المورد دائمًا — حتى لو انهار أي جزء أعلاه بشكل غير متوقع —
         # بحيث لا يبقى النظام عالقًا وغير قادر على قبول مهمة تنزيل جديدة.
         DOWNLOAD_SLOTS.release()
+        with TASKS_LOCK:
+            _TASK_PARTIAL_FILES.pop(task_id, None)
 
 
 def get_task_status(task_id):
@@ -939,3 +1053,17 @@ def get_task_status(task_id):
         if task is None:
             return {"success": False, "error": "معرّف المهمة غير موجود أو انتهت صلاحيته."}
         return {"success": True, "data": dict(task)}
+
+
+def open_downloaded_file(filename):
+    """يفتح ملفًا محفوظًا في مجلد التنزيلات بتطبيق الجهاز عبر termux-open،
+    بدل تنزيل نسخة ثانية منه عبر المتصفح. لا ننتظر انتهاء الأمر."""
+    safe = os.path.basename(str(filename or ""))
+    path = os.path.join(DOWNLOADS_DIR, safe)
+    if not safe or not os.path.isfile(path):
+        return {"success": False, "error": "الملف غير موجود في مجلد التنزيلات."}
+    try:
+        subprocess.Popen(["termux-open", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        return {"success": False, "error": "تعذّر فتح الملف. الأمر termux-open غير متاح على هذا الجهاز."}
+    return {"success": True}
